@@ -118,7 +118,7 @@ export function MoreInfoSection() {
             <p className="text-lg mb-6">
               Con nuestro sistema de seguimiento y recordatorios, <strong>aumentas tus probabilidades de éxito en un 300%</strong>.
             </p>
-            <Button asChild size="lg" className="bg-white text-blue-600 hover:bg-gray-100">
+            <Button asChild size="lg" className="bg-white text-blue-600 hover:bg-gray-100 transform transition duration-300 hover:scale-105">
               <Link href="/sign-up">
                 Empieza tu transformación hoy
               </Link>

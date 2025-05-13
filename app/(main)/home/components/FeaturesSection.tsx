@@ -26,7 +26,7 @@ export function FeaturesSection() {
     <section id="features" className="py-20 px-4 bg-white">
       <div className="max-w-6xl mx-auto">
         <h2 className="text-3xl font-bold text-center mb-16">
-          Potencia tu <span className="text-green-600">transformación</span>
+          Potencia tu <span className="text-blue-600">transformación</span>
         </h2>
         
         <div className="grid md:grid-cols-3 gap-12">

@@ -1,5 +1,6 @@
 'use client'
 import { UserButton, useUser } from '@clerk/nextjs'
+import Link from 'next/link'
 
 export function AuthButtons() {
   const { isSignedIn } = useUser()
@@ -21,18 +22,18 @@ export function AuthButtons() {
         </>
       ) : (
         <>
-          <a 
+          <Link 
             href="/sign-in" 
             className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-700 transition"
           >
             Iniciar sesión
-          </a>
-          <a 
+          </Link>
+          <Link 
             href="/sign-up" 
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition"
+            className="px-4 py-2 bg-white border-blue-600 text-blue-600 rounded-lg hover:bg-gray-300 transition"
           >
             Registrarse
-          </a>
+          </Link>
         </>
       )}
     </div>

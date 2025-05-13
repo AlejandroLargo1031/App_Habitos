@@ -14,7 +14,7 @@ export function CTASection() {
           Únete a miles de personas que ya están construyendo una vida más 
           saludable y productiva.
         </p>
-        <Button asChild size="lg" className="bg-white text-blue-600 hover:bg-gray-100">
+        <Button asChild size="lg" className="bg-white text-blue-600 hover:bg-gray-100 transition duration-300 hover:scale-105">
           <Link href="/sign-up">
             Empieza ahora - Es gratis!
           </Link>

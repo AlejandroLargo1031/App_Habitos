@@ -16,23 +16,22 @@ export function HeroSection() {
           sistema de seguimiento inteligente.
         </p>
         <div className="flex gap-4 justify-center">
-          <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700 text-white">
+          <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700 text-white transition duration-300 hover:scale-105">
             <Link href="/sign-up">
               Comienza gratis <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>
-          <Button asChild variant="outline" size="lg" className="border-blue-600 text-blue-600">
+          <Button asChild variant="outline" size="lg" className="border-blue-600 text-blue-600 transition duration-300 hover:scale-105">
             <Link href="/moreInfo">
               Conoce más
             </Link>
           </Button>
         </div>
       </div>
-      
-      {/* Hero Image */}
+  
       <div className="mt-16 max-w-5xl mx-auto bg-white p-2 rounded-xl shadow-xl">
         <img 
-          src="/screenshots/app-dashboard.png" 
+          src="/app-dashboard.png" 
           alt="Dashboard de la aplicación"
           className="rounded-lg border border-gray-200"
         />
