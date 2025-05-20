@@ -24,8 +24,24 @@ const useHydration = (getToken: any) => {
   const fetchHydrationData = async () => {
     try {
       const token = await getToken({ template: "django_backend" });
-      if (!token) return;
+      console.log("Token obtenido:", token ? "Sí" : "No");
+      if (!token) {
+        console.error("No se pudo obtener el token de autenticación");
+        return;
+      }
 
+      // Decodificar el token para ver su contenido (solo para depuración)
+      try {
+        const tokenParts = token.split('.');
+        if (tokenParts.length === 3) {
+          const payload = JSON.parse(atob(tokenParts[1]));
+          console.log("Token payload:", payload);
+        }
+      } catch (e) {
+        console.error("Error al decodificar el token:", e);
+      }
+
+      console.log("Intentando hacer la petición a:", `${process.env.NEXT_PUBLIC_API_URL}api/hydration/dashboard/`);
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}api/hydration/dashboard/`,
         {
@@ -35,12 +51,23 @@ const useHydration = (getToken: any) => {
         }
       );
 
-      if (!res.ok) throw new Error("Error al cargar datos de hidratación");
+      console.log("Respuesta del servidor:", {
+        status: res.status,
+        statusText: res.statusText,
+        ok: res.ok,
+        headers: Object.fromEntries(res.headers.entries())
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Error response body:", errorText);
+        throw new Error("Error al cargar datos de hidratación");
+      }
 
       const data: HydrationData = await res.json();
       setHydrationData(data);
     } catch (err) {
-      console.error("Error fetching hydration data:", err);
+      console.error("Error completo al obtener datos de hidratación:", err);
     }
   };
 
@@ -98,7 +125,7 @@ const useHydration = (getToken: any) => {
 
   useEffect(() => {
     fetchHydrationData();
-  }, [getToken]);
+  }, [fetchHydrationData, getToken]);
 
   return { hydrationData, recordWaterIntake };
 };

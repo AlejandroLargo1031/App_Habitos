@@ -1,44 +1,63 @@
-import { CheckCircle, TrendingUp, Award } from "lucide-react";
+import { Button } from "@/Components/ui/button";
+import { CheckCircle2, BarChart2, Bell } from "lucide-react";
 
-export function FeaturesSection() {
-  const features = [
-    {
-      icon: <CheckCircle className="text-blue-600 w-8 h-8" />,
-      bgColor: "bg-blue-100",
-      title: "Seguimiento simple",
-      description: "Registra tus hábitos con un solo clic. Marca tu progreso diario en ejercicio, hidratación y más."
-    },
-    {
-      icon: <TrendingUp className="text-orange-600 w-8 h-8" />,
-      bgColor: "bg-orange-100",
-      title: "Rachas motivadoras",
-      description: "No rompas la cadena! Visualiza tus rachas actuales y récords personales para mantener la motivación."
-    },
-    {
-      icon: <Award className="text-purple-600 w-8 h-8" />,
-      bgColor: "bg-purple-100",
-      title: "Logros y metas",
-      description: "Desbloquea insignias y celebra tus hitos. Alcanza tus metas semanales y mensuales."
-    }
-  ];
+interface FeaturesSectionProps {
+  onNavigate: (path: string) => void;
+}
 
+export default function FeaturesSection({ onNavigate }: FeaturesSectionProps) {
   return (
-    <section id="features" className="py-20 px-4 bg-white">
-      <div className="max-w-6xl mx-auto">
-        <h2 className="text-3xl font-bold text-center mb-16">
-          Potencia tu <span className="text-blue-600">transformación</span>
+    <section className="py-20 bg-white">
+      <div className="container mx-auto px-4">
+        <h2 className="text-3xl font-bold text-center mb-12">
+          Características principales
         </h2>
         
-        <div className="grid md:grid-cols-3 gap-12">
-          {features.map((feature, index) => (
-            <div key={index} className="text-center">
-              <div className={`${feature.bgColor} p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4`}>
-                {feature.icon}
-              </div>
-              <h3 className="text-xl font-semibold mb-3">{feature.title}</h3>
-              <p className="text-gray-600">{feature.description}</p>
-            </div>
-          ))}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="bg-gray-50 p-6 rounded-xl">
+            <CheckCircle2 className="h-12 w-12 text-blue-600 mb-4" />
+            <h3 className="text-xl font-semibold mb-3">Seguimiento de Hábitos</h3>
+            <p className="text-gray-600 mb-4">
+              Registra y monitorea tus hábitos diarios de manera sencilla y efectiva.
+            </p>
+            <Button
+              variant="ghost"
+              className="text-blue-600 hover:text-blue-700"
+              onClick={() => onNavigate("/sign-up")}
+            >
+              Comenzar ahora →
+            </Button>
+          </div>
+          
+          <div className="bg-gray-50 p-6 rounded-xl">
+            <BarChart2 className="h-12 w-12 text-blue-600 mb-4" />
+            <h3 className="text-xl font-semibold mb-3">Estadísticas Detalladas</h3>
+            <p className="text-gray-600 mb-4">
+              Visualiza tu progreso con gráficos y estadísticas personalizadas.
+            </p>
+            <Button
+              variant="ghost"
+              className="text-blue-600 hover:text-blue-700"
+              onClick={() => onNavigate("/sign-up")}
+            >
+              Ver más →
+            </Button>
+          </div>
+          
+          <div className="bg-gray-50 p-6 rounded-xl">
+            <Bell className="h-12 w-12 text-blue-600 mb-4" />
+            <h3 className="text-xl font-semibold mb-3">Recordatorios</h3>
+            <p className="text-gray-600 mb-4">
+              Recibe notificaciones para mantener tus hábitos al día.
+            </p>
+            <Button
+              variant="ghost"
+              className="text-blue-600 hover:text-blue-700"
+              onClick={() => onNavigate("/sign-up")}
+            >
+              Probar →
+            </Button>
+          </div>
         </div>
       </div>
     </section>

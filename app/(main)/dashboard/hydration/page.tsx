@@ -138,17 +138,84 @@ export default function HydrationPage() {
   const weekly = hydrationData.weekly_records || [];
   const completionPercentage = Math.round((today.amount / today.goal) * 100);
 
-  // Fill missing days in weekly data
-  const daysOfWeek = ['M', 'M', 'J', 'V', 'S', 'D', 'L'];
-  const fullWeekData = Array(7).fill(0).map((_, i) => {
-    const targetDate = new Date();
-    targetDate.setDate(targetDate.getDate() - (6 - i));
-    const dateStr = targetDate.toISOString().split('T')[0];
-    const record = weekly.find(r => r.date === dateStr);
+  // Corregir el orden de los días de la semana (L, M, M, J, V, S, D)
+  const daysOfWeek = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+  
+  // Reorganizar los días para que empiecen desde el lunes
+  const reorderedDays = [...daysOfWeek.slice(1), daysOfWeek[0]];
+  
+  // Calcular las fechas de la semana actual
+  const getWeekDates = () => {
+    const dates = [];
+    const today = new Date();
+    const currentDay = today.getDay();
+    const diff = currentDay === 0 ? 6 : currentDay - 1; // Ajustar para que la semana empiece en lunes
+    
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - diff + i);
+      dates.push(date.toISOString().split('T')[0]);
+    }
+    return dates;
+  };
+
+  // Obtener datos de la semana actual
+  const weekDates = getWeekDates();
+  const fullWeekData = weekDates.map(date => {
+    const record = weekly.find(r => r.date === date);
     return record ? record.amount : 0;
   });
 
   const maxWeeklyAmount = Math.max(...fullWeekData, 1); // Ensure at least 1 to avoid division by zero
+
+  // Calcular racha actual y mejor racha
+  const calculateStreaks = () => {
+    let currentStreak = 0;
+    let longestStreak = 0;
+    let tempStreak = 0;
+
+    // Ordenar las fechas de más reciente a más antigua
+    const sortedDates = weekly
+      .map(r => new Date(r.date))
+      .sort((a, b) => b.getTime() - a.getTime());
+
+    // Verificar si hoy está completado
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const todayRecord = weekly.find(r => r.date === todayStr);
+    const isTodayCompleted = todayRecord && todayRecord.amount >= todayRecord.goal;
+
+    // Calcular racha actual
+    if (isTodayCompleted) {
+      currentStreak = 1;
+      for (let i = 1; i < sortedDates.length; i++) {
+        const currentDate = sortedDates[i];
+        const prevDate = sortedDates[i - 1];
+        const diffDays = Math.floor((prevDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 1) {
+          currentStreak++;
+        } else {
+          break;
+        }
+      }
+    }
+
+    // Calcular mejor racha
+    tempStreak = 0;
+    for (let i = 0; i < sortedDates.length; i++) {
+      if (i === 0 || Math.floor((sortedDates[i-1].getTime() - sortedDates[i].getTime()) / (1000 * 60 * 60 * 24)) === 1) {
+        tempStreak++;
+        longestStreak = Math.max(longestStreak, tempStreak);
+      } else {
+        tempStreak = 1;
+      }
+    }
+
+    return { currentStreak, longestStreak };
+  };
+
+  const { currentStreak, longestStreak } = calculateStreaks();
 
   return (
     <div className="p-6 space-y-8">
@@ -168,7 +235,7 @@ export default function HydrationPage() {
           </div>
           <div className="flex items-center gap-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full">
             <Flame className="h-4 w-4" />
-            <span className="font-medium">{hydrationData.stats?.current_streak || 0} días</span>
+            <span className="font-medium">{currentStreak} días</span>
           </div>
         </div>
 
@@ -213,20 +280,25 @@ export default function HydrationPage() {
         <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Esta semana</h3>
           <div className="flex items-end gap-1 h-40">
-            {fullWeekData.map((amount, index) => (
-              <div key={index} className="flex-1 flex flex-col items-center">
-                <div 
-                  className="w-full bg-blue-100 rounded-t-sm hover:bg-blue-200 transition"
-                  style={{ height: `${(amount / maxWeeklyAmount) * 100}%` }}
-                >
-                  <div className="bg-blue-500 h-full rounded-t-sm"></div>
+            {fullWeekData.map((amount, index) => {
+              const isToday = index === new Date().getDay() - 1;
+              return (
+                <div key={index} className="flex-1 flex flex-col items-center">
+                  <div 
+                    className={`w-full bg-blue-100 rounded-t-sm hover:bg-blue-200 transition ${
+                      isToday ? 'ring-2 ring-blue-500' : ''
+                    }`}
+                    style={{ height: `${(amount / maxWeeklyAmount) * 100}%` }}
+                  >
+                    <div className="bg-blue-500 h-full rounded-t-sm"></div>
+                  </div>
+                  <span className="text-xs text-gray-500 mt-1">
+                    {reorderedDays[index]}
+                  </span>
+                  <span className="text-xs font-medium mt-1">{amount}</span>
                 </div>
-                <span className="text-xs text-gray-500 mt-1">
-                  {daysOfWeek[index]}
-                </span>
-                <span className="text-xs font-medium mt-1">{amount}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -270,14 +342,14 @@ export default function HydrationPage() {
             <CheckCircle2 className="h-5 w-5 text-green-600" />
             <div>
               <p className="font-medium">Días consecutivos</p>
-              <p className="text-2xl font-bold text-cyan-800">{hydrationData.stats?.current_streak || 0}</p>
+              <p className="text-2xl font-bold text-cyan-800">{currentStreak}</p>
             </div>
           </div>
           <div className="bg-white p-4 rounded-lg border border-cyan-200 flex items-center gap-3">
             <Clock className="h-5 w-5 text-blue-600" />
             <div>
               <p className="font-medium">Mejor racha</p>
-              <p className="text-2xl font-bold text-cyan-800">{hydrationData.stats?.longest_streak || 0} días</p>
+              <p className="text-2xl font-bold text-cyan-800">{longestStreak} días</p>
             </div>
           </div>
         </div>

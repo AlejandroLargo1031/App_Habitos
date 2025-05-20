@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 
+// For static export, we'll return a mock response
 export async function GET() {
   try {
     // 1. Autenticación directa

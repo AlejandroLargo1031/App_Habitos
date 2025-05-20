@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@clerk/nextjs";
@@ -67,25 +66,61 @@ export default function HabitsList() {
   };
 
   const formatDate = useCallback((date: Date) => {
-    const year = date.getFullYear();
-    const month = `${date.getMonth() + 1}`.padStart(2, "0");
-    const day = `${date.getDate()}`.padStart(2, "0");
+    // Asegurarnos de que la fecha esté en la zona horaria local
+    const localDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+    const year = localDate.getFullYear();
+    const month = `${localDate.getMonth() + 1}`.padStart(2, "0");
+    const day = `${localDate.getDate()}`.padStart(2, "0");
     return `${year}-${month}-${day}`;
   }, []);
 
   const isSameDay = (date1: Date, date2: Date) => {
+    // Asegurarnos de que ambas fechas estén en la zona horaria local
+    const localDate1 = new Date(date1.getTime() - (date1.getTimezoneOffset() * 60000));
+    const localDate2 = new Date(date2.getTime() - (date2.getTimezoneOffset() * 60000));
+    
     return (
-      date1.getFullYear() === date2.getFullYear() &&
-      date1.getMonth() === date2.getMonth() &&
-      date1.getDate() === date2.getDate()
+      localDate1.getFullYear() === localDate2.getFullYear() &&
+      localDate1.getMonth() === localDate2.getMonth() &&
+      localDate1.getDate() === localDate2.getDate()
     );
+  };
+
+  const getWeekStart = (date: Date) => {
+    // Asegurarnos de que la fecha esté en la zona horaria local
+    const localDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+    const weekStart = new Date(localDate);
+    weekStart.setDate(localDate.getDate() - localDate.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    return weekStart;
   };
 
   const isHabitCompletedToday = useCallback((habit: Habit) => {
     const today = new Date();
-    return (habit.completed_dates || []).some((dateStr) =>
+    const isCompleted = (habit.completed_dates || []).some((dateStr) =>
       isSameDay(parseApiDate(dateStr), today)
     );
+    
+    // Para hábitos en horas, solo se considera completado si alcanzó el objetivo
+    if (habit.meta_unidad?.toLowerCase() === "horas") {
+      return isCompleted && habit.actual >= habit.objetivo;
+    }
+
+    // Para hábitos semanales, verificar si ya se completó esta semana
+    if (habit.frecuencia === "semanal") {
+      const lastCompletedDate = habit.completed_dates
+        ?.map(dateStr => parseApiDate(dateStr))
+        .sort((a, b) => b.getTime() - a.getTime())[0];
+
+      if (lastCompletedDate) {
+        const lastWeekStart = getWeekStart(lastCompletedDate);
+        const thisWeekStart = getWeekStart(today);
+
+        return lastWeekStart.getTime() === thisWeekStart.getTime();
+      }
+    }
+    
+    return isCompleted;
   }, []);
 
   const calculateCompletedDates = useCallback((habits: Habit[]) => {
@@ -102,15 +137,48 @@ export default function HabitsList() {
         }
       });
     });
+    // Ordenar fechas de más reciente a más antigua
+    uniqueDates.sort((a, b) => b.getTime() - a.getTime());
     setCompletedDates(uniqueDates);
   }, []);
+
+  const getStreakDates = useCallback(() => {
+    const streakDates: Date[] = [];
+    habits.forEach((habit) => {
+      const dates = habit.completed_dates
+        .map(parseApiDate)
+        .sort((a, b) => a.getTime() - b.getTime());
+
+      let currentStreak: Date[] = [];
+      dates.forEach((date, index) => {
+        if (
+          index === 0 ||
+          dates[index - 1].getTime() === date.getTime() - 86400000
+        ) {
+          currentStreak.push(date);
+        } else {
+          if (currentStreak.length >= 3) {
+            streakDates.push(...currentStreak);
+          }
+          currentStreak = [date];
+        }
+      });
+
+      // Verificar la última racha
+      if (currentStreak.length >= 3) {
+        streakDates.push(...currentStreak);
+      }
+    });
+    return streakDates;
+  }, [habits]);
 
   const modifiers = useMemo(
     () => ({
       completed: completedDates,
       today: new Date(),
+      streak: getStreakDates(),
     }),
-    [completedDates]
+    [completedDates, getStreakDates]
   );
 
   const modifiersStyles = useMemo(
@@ -122,6 +190,11 @@ export default function HabitsList() {
       },
       today: {
         backgroundColor: "#3b82f6",
+        borderRadius: "50%",
+        color: "white",
+      },
+      streak: {
+        backgroundColor: "#f59e0b",
         borderRadius: "50%",
         color: "white",
       },
@@ -196,6 +269,89 @@ export default function HabitsList() {
     }
   }, [lastUpdated, formatDate, getToken, fetchHabits]);
 
+  // Calcular el mejor record de racha
+  const calculateBestStreak = useCallback(() => {
+    let bestStreak = 0;
+    habits.forEach((habit) => {
+      const dates = habit.completed_dates
+        .map(parseApiDate)
+        .sort((a, b) => a.getTime() - b.getTime());
+
+      let currentStreak = 0;
+      dates.forEach((date, index) => {
+        if (
+          index === 0 ||
+          dates[index - 1].getTime() === date.getTime() - 86400000
+        ) {
+          currentStreak++;
+          bestStreak = Math.max(bestStreak, currentStreak);
+        } else {
+          currentStreak = 1;
+        }
+      });
+    });
+    return bestStreak;
+  }, [habits]);
+
+  // Calcular la racha actual
+  const calculateCurrentStreak = useCallback(() => {
+    const today = new Date();
+    let currentStreak = 0;
+    let foundToday = false;
+
+    habits.forEach((habit) => {
+      const dates = habit.completed_dates
+        .map(parseApiDate)
+        .sort((a, b) => b.getTime() - a.getTime());
+
+      let streak = 0;
+      for (let i = 0; i < dates.length; i++) {
+        if (i === 0 && isSameDay(dates[i], today)) {
+          foundToday = true;
+          streak = 1;
+        } else if (
+          i > 0 &&
+          dates[i - 1].getTime() === dates[i].getTime() + 86400000
+        ) {
+          streak++;
+        } else {
+          break;
+        }
+      }
+      currentStreak = Math.max(currentStreak, streak);
+    });
+
+    return foundToday ? currentStreak : 0;
+  }, [habits]);
+
+  // Actualizar los cálculos de rachas solo cuando cambien los hábitos
+  useEffect(() => {
+    const bestStreak = calculateBestStreak();
+    const currentStreak = calculateCurrentStreak();
+    
+    // Solo actualizar si hay cambios reales
+    const hasChanges = habits.some(habit => 
+      habit.racha_record !== bestStreak || 
+      habit.racha_actual !== currentStreak
+    );
+
+    if (hasChanges) {
+      const updatedHabits = habits.map(habit => ({
+        ...habit,
+        racha_record: Math.max(habit.racha_record || 0, bestStreak),
+        racha_actual: currentStreak
+      }));
+      setHabits(updatedHabits);
+    }
+  }, [habits, calculateBestStreak, calculateCurrentStreak]);
+
+  // Actualizar las fechas completadas cuando cambien los hábitos
+  useEffect(() => {
+    if (habits.length > 0) {
+      calculateCompletedDates(habits);
+    }
+  }, [habits, calculateCompletedDates]);
+
   // Verificación de cambio de día
   useEffect(() => {
     const checkDayChange = () => {
@@ -214,7 +370,11 @@ export default function HabitsList() {
     return () => clearInterval(interval);
   }, [lastUpdated, checkAndResetDailyProgress, formatDate]);
 
-  // HabitList.tsx
+  // Cargar hábitos inicialmente
+  useEffect(() => {
+    fetchHabits();
+  }, [fetchHabits]);
+
   const incrementProgress = useCallback(
     async (habitId: string) => {
       if (isLoading) return;
@@ -228,12 +388,40 @@ export default function HabitsList() {
           throw new Error("Hábito no encontrado");
         }
 
-        const todayFormatted = formatDate(new Date());
+        // Asegurarnos de que la fecha actual esté en la zona horaria local
+        const today = new Date();
+        const todayFormatted = formatDate(today);
         const isCompleted = isHabitCompletedToday(habitToUpdate);
 
         if (isCompleted) {
-          toast.info("Este hábito ya fue completado hoy");
+          if (habitToUpdate.frecuencia === "semanal") {
+            toast.info("Este hábito ya fue completado esta semana");
+          } else {
+            toast.info("Este hábito ya fue completado hoy");
+          }
           return;
+        }
+
+        // Determinar el comportamiento basado en la unidad de medida
+        let newActual = habitToUpdate.actual;
+        let message = "";
+
+        if (habitToUpdate.meta_unidad?.toLowerCase() === "minutos") {
+          // Para minutos, completar automáticamente el hábito
+          newActual = habitToUpdate.objetivo;
+          message = "¡Hábito completado!";
+        } else if (habitToUpdate.meta_unidad?.toLowerCase() === "horas") {
+          // Para horas, incrementar una hora a la vez
+          newActual = Math.min(habitToUpdate.actual + 1, habitToUpdate.objetivo);
+          message = newActual === habitToUpdate.objetivo 
+            ? "¡Hábito completado!" 
+            : `Hora registrada (${newActual}/${habitToUpdate.objetivo})`;
+        } else {
+          // Para otras unidades, incrementar en 1
+          newActual = Math.min(habitToUpdate.actual + 1, habitToUpdate.objetivo);
+          message = newActual === habitToUpdate.objetivo 
+            ? "¡Hábito completado!" 
+            : "¡Progreso actualizado!";
         }
 
         const response = await fetch(
@@ -245,14 +433,11 @@ export default function HabitsList() {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              actual: Math.min(
-                habitToUpdate.actual + 1,
-                habitToUpdate.objetivo
-              ),
-              completed_dates: [
-                ...habitToUpdate.completed_dates,
-                todayFormatted,
-              ],
+              actual: newActual,
+              // Solo añadir la fecha si se completó el objetivo o es un hábito semanal
+              completed_dates: (newActual === habitToUpdate.objetivo || habitToUpdate.frecuencia === "semanal")
+                ? [...habitToUpdate.completed_dates, todayFormatted]
+                : habitToUpdate.completed_dates,
             }),
           }
         );
@@ -262,23 +447,15 @@ export default function HabitsList() {
           throw new Error(errorData.detail || JSON.stringify(errorData));
         }
 
-        // Actualizar lista completa desde el backend
         await fetchHabits();
-        toast.success("¡Progreso actualizado!");
+        toast.success(message);
       } catch (error: any) {
         toast.error(error.message || "Error al actualizar");
       } finally {
         setIsLoading(false);
       }
     },
-    [
-      habits,
-      isLoading,
-      getToken,
-      fetchHabits,
-      formatDate,
-      isHabitCompletedToday,
-    ]
+    [habits, isLoading, getToken, fetchHabits, formatDate, isHabitCompletedToday]
   );
 
   // Resto de tus funciones (deleteHabit, handleNewHabit) permanecen iguales
@@ -367,47 +544,46 @@ export default function HabitsList() {
     [habits, personalRecord]
   );
 
-  // Calcular días en racha actual
-  const getStreakDates = useCallback(() => {
-    const streakDates: Date[] = [];
-    habits.forEach((habit) => {
-      const dates = habit.completed_dates
-        .map(parseApiDate)
-        .sort((a, b) => a.getTime() - b.getTime());
-
-      let currentStreak: Date[] = [];
-      dates.forEach((date, index) => {
-        if (
-          index === 0 ||
-          dates[index - 1].getTime() === date.getTime() - 86400000
-        ) {
-          currentStreak.push(date);
-        } else {
-          currentStreak = [date];
-        }
-      });
-
-      if (currentStreak.length >= 3) {
-        // Destacar rachas de 3+ días
-        streakDates.push(...currentStreak);
-      }
-    });
-    return streakDates;
-  }, [habits]);
-
   // Obtener longitud de racha para fecha específica
   const getStreakForDate = useCallback(
     (date: Date) => {
       const dateStr = formatDate(date);
-      return Math.max(
-        ...habits.map(
-          (habit) =>
-            habit.completed_dates
-              .sort()
-              .reverse()
-              .findIndex((d) => d === dateStr) + 1
-        )
-      );
+      let maxStreak = 0;
+
+      habits.forEach((habit) => {
+        const dates = habit.completed_dates
+          .map(parseApiDate)
+          .sort((a, b) => a.getTime() - b.getTime());
+
+        let currentStreak = 0;
+        let foundDate = false;
+
+        for (let i = 0; i < dates.length; i++) {
+          if (isSameDay(dates[i], date)) {
+            foundDate = true;
+            currentStreak = 1;
+            // Contar días consecutivos hacia atrás
+            for (let j = i - 1; j >= 0; j--) {
+              if (dates[j].getTime() === dates[j + 1].getTime() - 86400000) {
+                currentStreak++;
+              } else {
+                break;
+              }
+            }
+            // Contar días consecutivos hacia adelante
+            for (let j = i + 1; j < dates.length; j++) {
+              if (dates[j].getTime() === dates[j - 1].getTime() + 86400000) {
+                currentStreak++;
+              } else {
+                break;
+              }
+            }
+            maxStreak = Math.max(maxStreak, currentStreak);
+          }
+        }
+      });
+
+      return maxStreak;
     },
     [habits, formatDate]
   );
@@ -479,11 +655,7 @@ export default function HabitsList() {
               mode="single"
               selected={selected}
               onSelect={setSelected}
-              modifiers={{
-                completed: completedDates,
-                today: new Date(),
-                streak: getStreakDates(), // Función adicional para destacar rachas
-              }}
+              modifiers={modifiers}
               modifiersStyles={modifiersStyles}
               styles={{
                 day: {
@@ -495,6 +667,17 @@ export default function HabitsList() {
                   fontSize: "1rem",
                   fontWeight: "600",
                 },
+                nav_button: {
+                  backgroundColor: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                },
+                nav_button_previous: {
+                  marginRight: "1rem",
+                },
+                nav_button_next: {
+                  marginLeft: "1rem",
+                },
               }}
               footer={
                 <div className="mt-2 text-sm text-gray-600">
@@ -505,14 +688,18 @@ export default function HabitsList() {
               }
             />
           </div>
-          <div className="mt-5 flex justify-center items-center gap-2">
+          <div className="mt-5 flex justify-center items-center gap-4">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-green-500 rounded-full" />
               <span className="text-sm text-gray-600">Completado</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-blue-500 rounded-full" />
-              <span className="text-sm text-gray-600">No completado</span>
+              <span className="text-sm text-gray-600">Hoy</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-orange-500 rounded-full" />
+              <span className="text-sm text-gray-600">Racha</span>
             </div>
           </div>
         </div>
@@ -588,6 +775,10 @@ export default function HabitsList() {
                         <Plus className="h-4 w-4 mr-1" />
                         {isHabitCompletedToday(habit)
                           ? "Completado"
+                          : habit.meta_unidad?.toLowerCase() === "minutos"
+                          ? "Completar"
+                          : habit.meta_unidad?.toLowerCase() === "horas"
+                          ? `Registrar hora (${habit.actual || 0}/${habit.objetivo})`
                           : "Registrar"}
                       </Button>
                       <Button
