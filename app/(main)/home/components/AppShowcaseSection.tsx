@@ -1,44 +1,39 @@
-export function AppShowcaseSection() {
+import { Button } from "@/Components/ui/button";
+import { ArrowRight } from "lucide-react";
+
+interface AppShowcaseSectionProps {
+  onNavigate: (path: string) => void;
+}
+
+export default function AppShowcaseSection({ onNavigate }: AppShowcaseSectionProps) {
   return (
-    <section className="py-20 px-4 bg-gray-50">
-      <div className="max-w-6xl mx-auto">
-        <h2 className="text-3xl font-bold text-center mb-16">
-          Diseñado para <span className="text-blue-600">tu éxito</span>
-        </h2>
-
-        <div className="grid md:grid-cols-2 gap-8 items-center">
+    <section className="py-20 bg-gray-50">
+      <div className="container mx-auto px-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           <div>
-            <h3 className="text-2xl font-semibold mb-4">Interfaz intuitiva</h3>
-            <p className="text-gray-600 mb-6">
-              Nuestra aplicación te guía de forma clara para que puedas
-              concentrarte en lo importante: construir hábitos duraderos.
+            <h2 className="text-3xl font-bold mb-6">
+              Una experiencia diseñada para ti
+            </h2>
+            <p className="text-gray-600 mb-8">
+              Nuestra aplicación está diseñada pensando en tu éxito. Con una interfaz intuitiva
+              y características personalizadas, te ayudamos a mantener tus hábitos de manera
+              efectiva y motivadora.
             </p>
-            <ul className="space-y-3">
-              <li className="flex items-start">
-                <span className="text-green-500 mr-2">✓</span>
-                <span>Vista rápida de tu progreso diario</span>
-              </li>
-              <li className="flex items-start">
-                <span className="text-green-500 mr-2">✓</span>
-                <span>Recordatorios personalizables</span>
-              </li>
-              <li className="flex items-start">
-                <span className="text-green-500 mr-2">✓</span>
-                <span>Estadísticas detalladas</span>
-              </li>
-            </ul>
+            <Button
+              size="lg"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={() => onNavigate("/sign-up")}
+            >
+              Comenzar ahora
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
           </div>
-
-          <div className="grid grid-cols-2 gap-6">
-            <img
-              src="/habit-tracker.png"
-              alt="Seguimiento de hábitos"
-              className="w-full h-auto rounded-lg shadow-lg border border-gray-300"
-            />
-            <img
-              src="/stats-screen.png"
-              alt="Estadísticas"
-              className="w-full h-auto rounded-lg shadow-lg border border-gray-300"
+          
+          <div className="bg-white p-2 rounded-xl shadow-xl">
+            <img 
+              src="/app-dashboard.png" 
+              alt="Dashboard de la aplicación"
+              className="rounded-lg border border-gray-200"
             />
           </div>
         </div>

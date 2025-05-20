@@ -2,11 +2,13 @@
   "name": "app_habitos",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "deploy": "next build && firebase deploy"
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "^4.5.0",
@@ -21,6 +23,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
+    "firebase": "^11.8.0",
     "lucide-react": "^0.503.0",
     "next": "15.3.0",
     "next-auth": "^4.24.11",
@@ -43,4 +46,5 @@
     "tw-animate-css": "^1.2.8",
     "typescript": "^5"
   }
+  
 }

@@ -1,41 +1,45 @@
-import { Button } from "../../../../Components/ui/button";
+import { Button } from "@/Components/ui/button";
 import { ArrowRight } from "lucide-react";
-import Link from "next/link";
 
-export function HeroSection() {
+interface HeroSectionProps {
+  onNavigate: (path: string) => void;
+}
+
+export default function HeroSection({ onNavigate }: HeroSectionProps) {
   return (
-    <section className="py-20 px-4 text-center">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-5xl font-bold text-gray-900 mb-6">
-          Transforma tus hábitos, 
-          <span className="text-blue-600"> transforma tu vida</span>
+    <div className="container mx-auto px-4 py-16">
+      <div className="text-center space-y-8">
+        <h1 className="text-5xl font-bold text-gray-900">
+          Bienvenido a{" "}
+          <span className="text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-green-600">
+            Conqueror
+          </span>
         </h1>
-        <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
-          La aplicación definitiva para construir y mantener hábitos saludables. 
-          Logra tus metas de ejercicio, hidratación y bienestar con nuestro 
-          sistema de seguimiento inteligente.
+        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          Tu compañero perfecto para desarrollar hábitos saludables y alcanzar
+          tus metas personales.
         </p>
-        <div className="flex gap-4 justify-center">
-          <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700 text-white transition duration-300 hover:scale-105">
-            <Link href="/sign-up">
-              Comienza gratis <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
+
+        <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
+          <Button
+            size="lg"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-6 text-lg transform transition duration-300 hover:scale-105"
+            onClick={() => onNavigate("/sign-in")}
+          >
+            Comenzar ahora
+            <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
-          <Button asChild variant="outline" size="lg" className="border-blue-600 text-blue-600 transition duration-300 hover:scale-105">
-            <Link href="/moreInfo">
-              Conoce más
-            </Link>
+
+          <Button
+            variant="outline"
+            size="lg"
+            className="border-blue-600 text-blue-600 hover:bg-blue-50 px-8 py-6 text-lg transform transition duration-300 hover:scale-105"
+            onClick={() => onNavigate("/sign-up")}
+          >
+            Crear cuenta
           </Button>
         </div>
       </div>
-  
-      <div className="mt-16 max-w-5xl mx-auto bg-white p-2 rounded-xl shadow-xl">
-        <img 
-          src="/app-dashboard.png" 
-          alt="Dashboard de la aplicación"
-          className="rounded-lg border border-gray-200"
-        />
-      </div>
-    </section>
+    </div>
   );
 }
