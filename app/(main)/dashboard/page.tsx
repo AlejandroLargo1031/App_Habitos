@@ -16,10 +16,10 @@ export default async function DashboardPage() {
   return (
     <>
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">
+        <h1 className="text-3xl pl-4 font-bold text-gray-900">
           ¡Bienvenido de vuelta, {user?.firstName}!
         </h1>
-        <p className="text-lg text-gray-600">
+        <p className="text-lg pl-4 text-gray-600">
           Hoy es un gran día para mejorar tus hábitos
         </p>
       </div>

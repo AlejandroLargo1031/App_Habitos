@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@clerk/nextjs";
 import {
   Flame,
@@ -21,27 +21,14 @@ import { HydrationData } from "@/app/types/hydration";
 const useHydration = (getToken: any) => {
   const [hydrationData, setHydrationData] = useState<HydrationData>({});
 
-  const fetchHydrationData = async () => {
+  const fetchHydrationData = useCallback(async () => {
     try {
       const token = await getToken({ template: "django_backend" });
-      console.log("Token obtenido:", token ? "Sí" : "No");
       if (!token) {
         console.error("No se pudo obtener el token de autenticación");
         return;
       }
 
-      // Decodificar el token para ver su contenido (solo para depuración)
-      try {
-        const tokenParts = token.split('.');
-        if (tokenParts.length === 3) {
-          const payload = JSON.parse(atob(tokenParts[1]));
-          console.log("Token payload:", payload);
-        }
-      } catch (e) {
-        console.error("Error al decodificar el token:", e);
-      }
-
-      console.log("Intentando hacer la petición a:", `${process.env.NEXT_PUBLIC_API_URL}api/hydration/dashboard/`);
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}api/hydration/dashboard/`,
         {
@@ -51,81 +38,58 @@ const useHydration = (getToken: any) => {
         }
       );
 
-      console.log("Respuesta del servidor:", {
-        status: res.status,
-        statusText: res.statusText,
-        ok: res.ok,
-        headers: Object.fromEntries(res.headers.entries())
-      });
-
       if (!res.ok) {
-        const errorText = await res.text();
-        console.error("Error response body:", errorText);
         throw new Error("Error al cargar datos de hidratación");
       }
 
       const data: HydrationData = await res.json();
       setHydrationData(data);
     } catch (err) {
-      console.error("Error completo al obtener datos de hidratación:", err);
+      console.error("Error al obtener datos de hidratación:", err);
     }
-  };
+  }, [getToken]);
 
-  const recordWaterIntake = async () => {
-  try {
-    const token = await getToken({ template: "django_backend" });
-    if (!token) {
-      console.error("No se pudo obtener el token de autenticación");
-      return;
-    }
-
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}api/hydration/add_glass/`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ amount: 1 }),
+  const recordWaterIntake = useCallback(async () => {
+    try {
+      const token = await getToken({ template: "django_backend" });
+      if (!token) {
+        console.error("No se pudo obtener el token de autenticación");
+        return;
       }
-    );
 
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      console.error("Error en la respuesta:", {
-        status: res.status,
-        statusText: res.statusText,
-        errorData
-      });
-      throw new Error(`Error al registrar vaso: ${res.statusText}`);
-    }
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}api/hydration/add_glass/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ amount: 1 }),
+        }
+      );
 
-    const updatedData = await res.json();
-    console.log("Datos actualizados de la API:", updatedData); // Verifica qué devuelve la API
+      if (!res.ok) {
+        throw new Error(`Error al registrar vaso: ${res.statusText}`);
+      }
 
-    setHydrationData(prev => {
-      // Asegurarnos de mantener todos los datos existentes
-      const newData = {
+      const updatedData = await res.json();
+      setHydrationData(prev => ({
         ...prev,
         today_record: {
-          ...prev.today_record, // Mantener todos los campos existentes
-          amount: updatedData.amount || (prev.today_record?.amount || 0) + 1, // Fallback por si la API no devuelve amount
-          goal: prev.today_record?.goal || 8 // Mantener el goal existente o usar valor por defecto
+          ...prev.today_record,
+          amount: updatedData.amount || (prev.today_record?.amount || 0) + 1,
+          goal: prev.today_record?.goal || 8
         }
-      };
-      console.log("Nuevos datos de hidratación:", newData);
-      return newData;
-    });
-
-  } catch (err) {
-    console.error("Error completo al registrar vaso:", err);
-  }
-};
+      }));
+    } catch (err) {
+      console.error("Error al registrar vaso:", err);
+    }
+  }, [getToken]);
 
   useEffect(() => {
     fetchHydrationData();
-  }, [fetchHydrationData, getToken]);
+  }, [fetchHydrationData]);
 
   return { hydrationData, recordWaterIntake };
 };
@@ -138,50 +102,48 @@ export default function DashboardContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Usar el hook de hidratación
   const { hydrationData, recordWaterIntake } = useHydration(getToken);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const token = await getToken({ template: "django_backend" });
-        if (!token) {
-          setError("Error de autenticación");
-          return;
-        }
-
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}api/habito/list/`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (!res.ok) throw new Error("Error al cargar hábitos");
-
-        const habitsData: Habit[] = await res.json();
-        setHabits(habitsData);
-
-        // Calcular rachas
-        if (habitsData.length > 0) {
-          const current = Math.max(
-            ...habitsData.map((h) => h.racha_actual || 0)
-          );
-          const max = Math.max(...habitsData.map((h) => h.racha_record || 0));
-          setCurrentStreak(current);
-          setMaxStreak(max);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Error desconocido");
-      } finally {
-        setLoading(false);
+  const fetchHabits = useCallback(async () => {
+    try {
+      const token = await getToken({ template: "django_backend" });
+      if (!token) {
+        setError("Error de autenticación");
+        return;
       }
-    };
 
-    fetchData();
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}api/habito/list/`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!res.ok) throw new Error("Error al cargar hábitos");
+
+      const habitsData: Habit[] = await res.json();
+      setHabits(habitsData);
+
+      if (habitsData.length > 0) {
+        const current = Math.max(
+          ...habitsData.map((h) => h.racha_actual || 0)
+        );
+        const max = Math.max(...habitsData.map((h) => h.racha_record || 0));
+        setCurrentStreak(current);
+        setMaxStreak(max);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error desconocido");
+    } finally {
+      setLoading(false);
+    }
   }, [getToken]);
+
+  useEffect(() => {
+    fetchHabits();
+  }, [fetchHabits]);
 
   // Calcular progreso diario
   const today = new Date().toISOString().split("T")[0];

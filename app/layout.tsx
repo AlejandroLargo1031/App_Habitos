@@ -34,20 +34,22 @@ export default function RootLayout({
         >
           <nav className="fixed top-0 left-0 w-full flex justify-between items-center p-4 gap-4 h-16 bg-white shadow-md z-50">
             <Link href="/home">
-            <div className="flex items-center gap-3 cursor-pointer">
-              <div className="p-2 bg-white/10 rounded-lg">
-                <Flame className="h-6 w-6 text-blue-600" />
+              <div className="flex items-center gap-3 cursor-pointer">
+                <div className="p-2 bg-white/10 rounded-lg">
+                  <Flame className="h-6 w-6 text-blue-600" />
+                </div>
+                <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-green-600">
+                  Conqueror
+                </h2>
               </div>
-              <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-green-600">
-                Conqueror
-              </h2>
-            </div>
             </Link>
-            <div>
+            <div className="relative">
               <AuthButtons />
             </div>
           </nav>
-          {children}
+          <main className="pt-16">
+            {children}
+          </main>
         </body>
       </html>
     </ClerkProvider>
