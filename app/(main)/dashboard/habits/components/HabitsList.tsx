@@ -62,12 +62,13 @@ export default function HabitsList() {
   // Funciones auxiliares
   const parseApiDate = (dateStr: string) => {
     const [year, month, day] = dateStr.split("-").map(Number);
-    return new Date(year, month - 1, day);
+    const date = new Date(year, month - 1, day);
+    date.setHours(0, 0, 0, 0);
+    return date;
   };
 
   const formatDate = useCallback((date: Date) => {
-    // Asegurarnos de que la fecha esté en la zona horaria local
-    const localDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+    const localDate = new Date(date);
     const year = localDate.getFullYear();
     const month = `${localDate.getMonth() + 1}`.padStart(2, "0");
     const day = `${localDate.getDate()}`.padStart(2, "0");
@@ -75,72 +76,69 @@ export default function HabitsList() {
   }, []);
 
   const isSameDay = (date1: Date, date2: Date) => {
-    // Asegurarnos de que ambas fechas estén en la zona horaria local
-    const localDate1 = new Date(date1.getTime() - (date1.getTimezoneOffset() * 60000));
-    const localDate2 = new Date(date2.getTime() - (date2.getTimezoneOffset() * 60000));
-    
     return (
-      localDate1.getFullYear() === localDate2.getFullYear() &&
-      localDate1.getMonth() === localDate2.getMonth() &&
-      localDate1.getDate() === localDate2.getDate()
+      date1.getFullYear() === date2.getFullYear() &&
+      date1.getMonth() === date2.getMonth() &&
+      date1.getDate() === date2.getDate()
     );
   };
 
   const getWeekStart = (date: Date) => {
-    // Asegurarnos de que la fecha esté en la zona horaria local
-    const localDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
-    const weekStart = new Date(localDate);
-    weekStart.setDate(localDate.getDate() - localDate.getDay());
+    const weekStart = new Date(date);
+    weekStart.setDate(date.getDate() - date.getDay());
     weekStart.setHours(0, 0, 0, 0);
     return weekStart;
   };
 
   const isHabitCompletedToday = useCallback((habit: Habit) => {
     const today = new Date();
-    const isCompleted = (habit.completed_dates || []).some((dateStr) =>
-      isSameDay(parseApiDate(dateStr), today)
-    );
+    today.setHours(0, 0, 0, 0);
+    const todayFormatted = formatDate(today);
     
-    // Para hábitos en horas, solo se considera completado si alcanzó el objetivo
+    const isCompleted = (habit.completed_dates || []).includes(todayFormatted);
+    
+    // Para hábitos en horas, verificar objetivo
     if (habit.meta_unidad?.toLowerCase() === "horas") {
       return isCompleted && habit.actual >= habit.objetivo;
     }
-
-    // Para hábitos semanales, verificar si ya se completó esta semana
+    
+    // Para hábitos semanales, verificar semana actual
     if (habit.frecuencia === "semanal") {
       const lastCompletedDate = habit.completed_dates
         ?.map(dateStr => parseApiDate(dateStr))
         .sort((a, b) => b.getTime() - a.getTime())[0];
-
+      
       if (lastCompletedDate) {
         const lastWeekStart = getWeekStart(lastCompletedDate);
         const thisWeekStart = getWeekStart(today);
-
         return lastWeekStart.getTime() === thisWeekStart.getTime();
       }
     }
     
     return isCompleted;
-  }, []);
+  }, [formatDate]);
 
   const calculateCompletedDates = useCallback((habits: Habit[]) => {
-    const uniqueDates: Date[] = [];
+    const uniqueDates = new Set<string>();
+    
     habits.forEach((habit) => {
       (habit.completed_dates || []).forEach((dateStr) => {
         try {
           const date = parseApiDate(dateStr);
-          if (!uniqueDates.some((d) => isSameDay(d, date))) {
-            uniqueDates.push(date);
-          }
+          uniqueDates.add(formatDate(date));
         } catch (error) {
           console.error("Fecha inválida:", dateStr);
         }
       });
     });
-    // Ordenar fechas de más reciente a más antigua
-    uniqueDates.sort((a, b) => b.getTime() - a.getTime());
-    setCompletedDates(uniqueDates);
-  }, []);
+    
+    const sortedDates = Array.from(uniqueDates)
+      .map(dateStr => parseApiDate(dateStr))
+      .sort((a, b) => b.getTime() - a.getTime());
+    
+    setCompletedDates(sortedDates);
+    return sortedDates;
+  }, [formatDate]);
 
   const getStreakDates = useCallback(() => {
     const streakDates: Date[] = [];
@@ -269,96 +267,121 @@ export default function HabitsList() {
     }
   }, [lastUpdated, formatDate, getToken, fetchHabits]);
 
-  // Calcular el mejor record de racha
-  const calculateBestStreak = useCallback(() => {
-    let bestStreak = 0;
-    habits.forEach((habit) => {
-      const dates = habit.completed_dates
-        .map(parseApiDate)
-        .sort((a, b) => a.getTime() - b.getTime());
-
-      let currentStreak = 0;
-      dates.forEach((date, index) => {
-        if (
-          index === 0 ||
-          dates[index - 1].getTime() === date.getTime() - 86400000
-        ) {
-          currentStreak++;
-          bestStreak = Math.max(bestStreak, currentStreak);
-        } else {
-          currentStreak = 1;
-        }
-      });
-    });
-    return bestStreak;
-  }, [habits]);
-
-  // Calcular la racha actual
-  const calculateCurrentStreak = useCallback(() => {
+  // Mejorar la lógica de cálculo de rachas
+  const calculateStreak = useCallback((dates: string[]) => {
+    if (!dates.length) return 0;
+    
+    const sortedDates = dates
+      .map(parseApiDate)
+      .sort((a, b) => b.getTime() - a.getTime());
+    
     const today = new Date();
-    let currentStreak = 0;
-    let foundToday = false;
-
-    habits.forEach((habit) => {
-      const dates = habit.completed_dates
-        .map(parseApiDate)
-        .sort((a, b) => b.getTime() - a.getTime());
-
-      let streak = 0;
-      for (let i = 0; i < dates.length; i++) {
-        if (i === 0 && isSameDay(dates[i], today)) {
-          foundToday = true;
-          streak = 1;
-        } else if (
-          i > 0 &&
-          dates[i - 1].getTime() === dates[i].getTime() + 86400000
-        ) {
-          streak++;
-        } else {
-          break;
-        }
+    today.setHours(0, 0, 0, 0);
+    const todayFormatted = formatDate(today);
+    
+    // Si no hay actividad hoy, la racha se rompe
+    if (formatDate(sortedDates[0]) !== todayFormatted) {
+      return 0;
+    }
+    
+    let currentStreak = 1;
+    let lastDate = sortedDates[0];
+    
+    for (let i = 1; i < sortedDates.length; i++) {
+      const currentDate = sortedDates[i];
+      const diffDays = Math.floor(
+        (lastDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      
+      if (diffDays === 1) {
+        currentStreak++;
+        lastDate = currentDate;
+      } else {
+        break;
       }
-      currentStreak = Math.max(currentStreak, streak);
-    });
+    }
+    
+    return currentStreak;
+  }, [formatDate]);
 
-    return foundToday ? currentStreak : 0;
-  }, [habits]);
+  // Mejorar la lógica de cálculo de record
+  const calculateRecord = useCallback((dates: string[]) => {
+    if (!dates.length) return 0;
+    
+    const sortedDates = dates
+      .map(parseApiDate)
+      .sort((a, b) => a.getTime() - b.getTime());
+    
+    let maxStreak = 0;
+    let currentStreak = 1;
+    let lastDate = sortedDates[0];
+    
+    for (let i = 1; i < sortedDates.length; i++) {
+      const currentDate = sortedDates[i];
+      const diffDays = Math.floor(
+        (currentDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      
+      if (diffDays === 1) {
+        currentStreak++;
+        maxStreak = Math.max(maxStreak, currentStreak);
+      } else if (diffDays > 1) {
+        currentStreak = 1;
+      }
+      
+      lastDate = currentDate;
+    }
+    
+    return Math.max(maxStreak, currentStreak);
+  }, []);
 
   // Actualizar los cálculos de rachas solo cuando cambien los hábitos
   useEffect(() => {
-    const bestStreak = calculateBestStreak();
-    const currentStreak = calculateCurrentStreak();
-    
-    // Solo actualizar si hay cambios reales
-    const hasChanges = habits.some(habit => 
-      habit.racha_record !== bestStreak || 
-      habit.racha_actual !== currentStreak
-    );
-
-    if (hasChanges) {
-      const updatedHabits = habits.map(habit => ({
+    const updatedHabits = habits.map(habit => {
+      const currentStreak = calculateStreak(habit.completed_dates || []);
+      const recordStreak = calculateRecord(habit.completed_dates || []);
+      
+      // Solo actualizar si hay cambios reales
+      if (habit.racha_actual === currentStreak && 
+          habit.racha_record === Math.max(habit.racha_record || 0, recordStreak)) {
+        return habit;
+      }
+      
+      return {
         ...habit,
-        racha_record: Math.max(habit.racha_record || 0, bestStreak),
-        racha_actual: currentStreak
-      }));
+        racha_actual: currentStreak,
+        racha_record: Math.max(habit.racha_record || 0, recordStreak)
+      };
+    });
+    
+    // Solo actualizar el estado si hay cambios reales
+    const hasChanges = updatedHabits.some((habit, index) => 
+      habit.racha_actual !== habits[index].racha_actual || 
+      habit.racha_record !== habits[index].racha_record
+    );
+    
+    if (hasChanges) {
       setHabits(updatedHabits);
     }
-  }, [habits, calculateBestStreak, calculateCurrentStreak]);
+  }, [habits, calculateStreak, calculateRecord]);
 
   // Actualizar las fechas completadas cuando cambien los hábitos
   useEffect(() => {
     if (habits.length > 0) {
-      calculateCompletedDates(habits);
+      const newCompletedDates = calculateCompletedDates(habits);
+      // Solo actualizar si hay cambios reales
+      if (JSON.stringify(newCompletedDates) !== JSON.stringify(completedDates)) {
+        setCompletedDates(newCompletedDates);
+      }
     }
   }, [habits, calculateCompletedDates]);
 
   // Verificación de cambio de día
   useEffect(() => {
     const checkDayChange = () => {
-      const today = new Date();
-      const todayFormatted = formatDate(today);
-      setCurrentDate(todayFormatted);
-
+      const now = new Date();
+      const todayFormatted = formatDate(now);
+      
       if (lastUpdated !== todayFormatted) {
         checkAndResetDailyProgress();
       }
@@ -367,13 +390,16 @@ export default function HabitsList() {
     // Verificar inmediatamente y luego cada minuto
     checkDayChange();
     const interval = setInterval(checkDayChange, 60000);
+    
     return () => clearInterval(interval);
   }, [lastUpdated, checkAndResetDailyProgress, formatDate]);
 
   // Cargar hábitos inicialmente
   useEffect(() => {
-    fetchHabits();
-  }, [fetchHabits]);
+    if (isLoaded && isSignedIn) {
+      fetchHabits();
+    }
+  }, [isLoaded, isSignedIn, fetchHabits]);
 
   const incrementProgress = useCallback(
     async (habitId: string) => {
@@ -388,41 +414,59 @@ export default function HabitsList() {
           throw new Error("Hábito no encontrado");
         }
 
-        // Asegurarnos de que la fecha actual esté en la zona horaria local
         const today = new Date();
         const todayFormatted = formatDate(today);
         const isCompleted = isHabitCompletedToday(habitToUpdate);
 
+        // Validaciones mejoradas
         if (isCompleted) {
           if (habitToUpdate.frecuencia === "semanal") {
-            toast.info("Este hábito ya fue completado esta semana");
+            const lastCompletedDate = habitToUpdate.completed_dates
+              ?.map(dateStr => parseApiDate(dateStr))
+              .sort((a, b) => b.getTime() - a.getTime())[0];
+
+            if (lastCompletedDate) {
+              const lastWeekStart = getWeekStart(lastCompletedDate);
+              const thisWeekStart = getWeekStart(today);
+
+              if (lastWeekStart.getTime() === thisWeekStart.getTime()) {
+                toast.info("Este hábito ya fue completado esta semana");
+                return;
+              }
+            }
           } else {
             toast.info("Este hábito ya fue completado hoy");
+            return;
           }
-          return;
         }
 
-        // Determinar el comportamiento basado en la unidad de medida
+        // Lógica mejorada para actualizar el progreso
         let newActual = habitToUpdate.actual;
+        let shouldAddDate = false;
         let message = "";
 
         if (habitToUpdate.meta_unidad?.toLowerCase() === "minutos") {
-          // Para minutos, completar automáticamente el hábito
           newActual = habitToUpdate.objetivo;
+          shouldAddDate = true;
           message = "¡Hábito completado!";
         } else if (habitToUpdate.meta_unidad?.toLowerCase() === "horas") {
-          // Para horas, incrementar una hora a la vez
           newActual = Math.min(habitToUpdate.actual + 1, habitToUpdate.objetivo);
+          shouldAddDate = newActual === habitToUpdate.objetivo;
           message = newActual === habitToUpdate.objetivo 
             ? "¡Hábito completado!" 
             : `Hora registrada (${newActual}/${habitToUpdate.objetivo})`;
         } else {
-          // Para otras unidades, incrementar en 1
           newActual = Math.min(habitToUpdate.actual + 1, habitToUpdate.objetivo);
+          shouldAddDate = newActual === habitToUpdate.objetivo;
           message = newActual === habitToUpdate.objetivo 
             ? "¡Hábito completado!" 
             : "¡Progreso actualizado!";
         }
+
+        // Actualizar fechas completadas solo cuando sea necesario
+        const updatedCompletedDates = shouldAddDate || habitToUpdate.frecuencia === "semanal"
+          ? [...new Set([...habitToUpdate.completed_dates, todayFormatted])]
+          : habitToUpdate.completed_dates;
 
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}api/habito/${habitId}/actualizar/`,
@@ -434,10 +478,7 @@ export default function HabitsList() {
             },
             body: JSON.stringify({
               actual: newActual,
-              // Solo añadir la fecha si se completó el objetivo o es un hábito semanal
-              completed_dates: (newActual === habitToUpdate.objetivo || habitToUpdate.frecuencia === "semanal")
-                ? [...habitToUpdate.completed_dates, todayFormatted]
-                : habitToUpdate.completed_dates,
+              completed_dates: updatedCompletedDates,
             }),
           }
         );
