@@ -178,7 +178,7 @@ export default function DashboardContent() {
                 asChild
                 className="bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-600 hover:to-blue-600 text-white transform transition duration-300 hover:scale-105"
               >
-                <Link href="/habits/" className="flex items-center gap-2">
+                <Link href="/dashboard/habits" className="flex items-center gap-2">
                   <Plus className="h-4 w-4" /> Nuevo hábito
                 </Link>
               </Button>
@@ -353,9 +353,9 @@ export default function DashboardContent() {
             </div>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-gray-800">
+          <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4 sm:mb-6">
+              <h3 className="text-lg sm:text-xl font-semibold text-gray-800">
                 Hábitos sugeridos para ti
               </h3>
               <Button
@@ -365,7 +365,7 @@ export default function DashboardContent() {
                 <Link href="/dashboard/habits">Ver todos</Link>
               </Button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 ml-44">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
               {[
                 {
                   name: "Estiramiento matutino",
@@ -385,15 +385,15 @@ export default function DashboardContent() {
               ].map((habit, index) => (
                 <div
                   key={index}
-                  className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition"
+                  className="border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition"
                 >
                   <div className="text-2xl mb-2">{habit.icon}</div>
-                  <h4 className="font-medium text-gray-800">{habit.name}</h4>
-                  <p className="text-sm text-gray-500">{habit.category}</p>
+                  <h4 className="font-medium text-gray-800 text-sm sm:text-base">{habit.name}</h4>
+                  <p className="text-xs sm:text-sm text-gray-500">{habit.category}</p>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="mt-3 w-full transform transition duration-300 hover:scale-105"
+                    className="mt-2 sm:mt-3 w-full transform transition duration-300 hover:scale-105 text-xs sm:text-sm"
                   >
                     <Link href="/dashboard/habits">Añadir a mis hábitos</Link>
                   </Button>
